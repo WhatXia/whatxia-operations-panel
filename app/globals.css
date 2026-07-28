@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0b0d12;
+  --foreground: #e8eaef;
+  --surface: #12151c;
+  --surface-elevated: #181c26;
+  --surface-hover: #1e2430;
+  --border: #2a3140;
+  --border-subtle: #1f2533;
+  --muted: #8b93a7;
+  --muted-strong: #a8b0c2;
+  --brand: #f5c518;
+  --brand-soft: rgba(245, 197, 24, 0.12);
+  --brand-hover: #ffd84a;
+  --brand-ink: #1a1400;
+  --success: #3ecf8e;
+  --warning: #f5a524;
+  --danger: #f07178;
+  --info: #6cb6ff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-ink: var(--brand-ink);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-sora);
+  --font-mono: var(--font-jetbrains);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* Subtle grid atmosphere for shell */
+.wx-shell-bg {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(245, 197, 24, 0.06), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(108, 182, 255, 0.04), transparent 50%),
+    linear-gradient(rgba(42, 49, 64, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 49, 64, 0.35) 1px, transparent 1px);
+  background-size: auto, auto, 48px 48px, 48px 48px;
+  background-position: 0 0, 0 0, -1px -1px, -1px -1px;
+}
+
+.wx-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.wx-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.wx-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
