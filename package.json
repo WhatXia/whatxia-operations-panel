@@ -6,7 +6,8 @@
     "dev": "next dev -p 3300",
     "build": "next build",
     "start": "next start -p 3300",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:referrals": "node --experimental-strip-types --test lib/referrals/compute.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

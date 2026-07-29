@@ -1,3 +1,5 @@
+import type { ReferralsDashboardBlock } from "@/lib/referrals/types";
+
 export type TripStatus =
   | "SEARCHING"
   | "ASSIGNED"
@@ -49,6 +51,7 @@ export type DashboardSnapshot = {
     lastActivityAt: string | null;
     lastActivityLabel: string;
   };
+  referrals: ReferralsDashboardBlock;
 };
 
 export type DashboardResponse =

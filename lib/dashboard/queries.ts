@@ -17,6 +17,8 @@ import type {
   HealthStatus,
   TripStatus,
 } from "@/lib/dashboard/types";
+import { fetchReferralsDashboardBlock } from "@/lib/referrals/queries";
+import { emptyReferralsDashboard } from "@/lib/referrals/types";
 
 type TripRow = {
   id: string;
@@ -176,6 +178,16 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
   const bot = inferBotHealth(lastActivityAt, now);
   const fetchedAt = now.toISOString();
 
+  let referrals = emptyReferralsDashboard();
+  try {
+    referrals = await fetchReferralsDashboardBlock();
+  } catch {
+    referrals = {
+      ...emptyReferralsDashboard(),
+      unavailableReason: "No se pudieron cargar indicadores de referidos",
+    };
+  }
+
   return {
     fetchedAt,
     fetchedAtLabel: formatDateTimeLabel(fetchedAt),
@@ -199,5 +211,6 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
       lastActivityAt,
       lastActivityLabel: formatRelativeLabel(lastActivityAt, now),
     },
+    referrals,
   };
 }

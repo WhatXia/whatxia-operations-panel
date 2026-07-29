@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DriverConversationsTab } from "@/components/drivers/DriverConversationsTab";
 import { DriverInfoTab } from "@/components/drivers/DriverInfoTab";
+import { DriverReferralsTab } from "@/components/drivers/DriverReferralsTab";
 import { DriverVehicleTab } from "@/components/drivers/DriverVehicleTab";
 import { FichaField } from "@/components/drivers/FichaFields";
 import { useReauth } from "@/components/security/ReauthProvider";
@@ -34,6 +35,7 @@ export const DRIVER_PROFILE_TABS = [
     emoji: "💬",
     editable: false,
   },
+  { id: "referidos", label: "Referidos", emoji: "🔗", editable: false },
   { id: "solicitudes", label: "Solicitudes", emoji: "📌", editable: false },
   { id: "auditoria", label: "Auditoría", emoji: "📝", editable: false },
 ] as const;
@@ -515,6 +517,12 @@ export function DriverDetailDrawer({
               ) : null}
               {tab === "conversaciones" ? (
                 <DriverConversationsTab driverId={detail.id} />
+              ) : null}
+              {tab === "referidos" ? (
+                <DriverReferralsTab
+                  driverId={detail.id}
+                  driverName={detail.name}
+                />
               ) : null}
               {tab === "solicitudes" ? (
                 <TabPlaceholder

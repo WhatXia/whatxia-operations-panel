@@ -158,6 +158,7 @@ function EmptyBlock({ data }: { data: DashboardSnapshot }) {
   return (
     <div className="space-y-4">
       <MetricsGrid data={data} />
+      <ReferralsBlock data={data} />
       <div className="rounded-xl border border-border bg-surface-elevated p-6">
         <h2 className="font-display text-sm font-semibold text-foreground">
           Sin datos operativos
@@ -189,6 +190,8 @@ function ReadyBlock({ data }: { data: DashboardSnapshot }) {
       </div>
 
       <MetricsGrid data={data} />
+
+      <ReferralsBlock data={data} />
 
       <section className="overflow-hidden rounded-xl border border-border bg-surface-elevated">
         <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
@@ -286,6 +289,104 @@ function MetricsGrid({ data }: { data: DashboardSnapshot }) {
         />
       </section>
     </>
+  );
+}
+
+function ReferralsBlock({ data }: { data: DashboardSnapshot }) {
+  const referrals = data.referrals;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-sm font-semibold text-foreground">
+          Referidos
+        </h2>
+        {!referrals.available ? (
+          <StatusBadge
+            label={referrals.unavailableReason ?? "No disponible"}
+            tone="neutral"
+          />
+        ) : (
+          <StatusBadge label="REF-002" tone="brand" />
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total usuarios referidos"
+          value={referrals.totalReferredUsers}
+        />
+        <StatCard
+          label="Conductores con referidos"
+          value={referrals.driversWithReferrals}
+        />
+        <StatCard
+          label="Invitados → Registrados"
+          value={referrals.conversionInvitedToRegisteredLabel}
+          hint="Conversión"
+        />
+        <StatCard
+          label="Registrados → Activos"
+          value={referrals.conversionRegisteredToActiveLabel}
+          hint="Conversión"
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-surface-elevated">
+        <div className="border-b border-border-subtle px-4 py-3">
+          <h3 className="font-display text-sm font-semibold text-foreground">
+            Ranking Top 10 conductores
+          </h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Ordenado por usuarios registrados atribuidos
+          </p>
+        </div>
+        {!referrals.available ? (
+          <p className="px-4 py-6 text-sm text-muted">
+            {referrals.unavailableReason ??
+              "Indicadores de referidos pendientes de esquema REF-001."}
+          </p>
+        ) : referrals.topDrivers.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted">
+            Aún no hay referidos registrados.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-muted">
+                <tr className="border-b border-border-subtle">
+                  <th className="px-4 py-3 font-medium">#</th>
+                  <th className="px-4 py-3 font-medium">Conductor</th>
+                  <th className="px-4 py-3 font-medium">Invitados</th>
+                  <th className="px-4 py-3 font-medium">Registrados</th>
+                  <th className="px-4 py-3 font-medium">Activos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {referrals.topDrivers.map((row, index) => (
+                  <tr
+                    key={row.driverId}
+                    className="border-b border-border-subtle/80 last:border-0"
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-muted">
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {row.driverName}
+                    </td>
+                    <td className="px-4 py-3 text-muted-strong">{row.invited}</td>
+                    <td className="px-4 py-3 text-muted-strong">
+                      {row.registered}
+                    </td>
+                    <td className="px-4 py-3 text-muted-strong">{row.active}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
