@@ -33,11 +33,12 @@ export const PERMISSION_MODULES = [
   { key: "dashboard", label: "Dashboard" },
   { key: "services", label: "Servicios" },
   { key: "drivers", label: "Conductores" },
+  { key: "passengers", label: "Usuarios finales" },
   { key: "metrics", label: "Métricas" },
   { key: "system_status", label: "Estado del Sistema" },
   { key: "incidents", label: "Incidentes" },
   { key: "conversations", label: "Conversaciones" },
-  { key: "users", label: "Usuarios" },
+  { key: "users", label: "Usuarios Admin" },
   { key: "roles", label: "Roles" },
   { key: "configuration", label: "Configuración" },
   { key: "ai", label: "IA" },
@@ -113,6 +114,12 @@ export function permissionModuleForPath(pathname: string): PermissionModule | nu
   }
   if (pathname.startsWith("/admin/usuarios") || pathname.startsWith("/api/admin/users")) {
     return "users";
+  }
+  if (
+    pathname.startsWith("/usuarios") ||
+    pathname.startsWith("/api/passengers")
+  ) {
+    return "passengers";
   }
   if (pathname.startsWith("/admin/roles") || pathname.startsWith("/api/admin/roles")) {
     return "roles";

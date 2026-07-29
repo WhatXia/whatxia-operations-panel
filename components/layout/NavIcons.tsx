@@ -6,6 +6,8 @@ export function NavIcon({
     | "dashboard"
     | "services"
     | "drivers"
+    | "users"
+    | "incidents"
     | "metrics"
     | "system"
     | "conversations"
@@ -41,6 +43,20 @@ export function NavIcon({
       return (
         <svg {...common}>
           <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-8 9a8 8 0 0 1 16 0" />
+        </svg>
+      );
+    case "users":
+      return (
+        <svg {...common}>
+          <path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4ZM8 13a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 8 13Z" />
+          <path d="M2.5 20a5.5 5.5 0 0 1 11 0M12 20a6 6 0 0 1 10 0" />
+        </svg>
+      );
+    case "incidents":
+      return (
+        <svg {...common}>
+          <path d="M12 3 3 20h18L12 3Z" />
+          <path d="M12 9v5M12 17h.01" />
         </svg>
       );
     case "conversations":

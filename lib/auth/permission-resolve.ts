@@ -11,9 +11,10 @@ const OPS_DEFAULT: Record<PermissionModule, PermissionLevel> = {
   dashboard: "read",
   services: "edit",
   drivers: "edit",
+  passengers: "read",
   metrics: "read",
   system_status: "read",
-  incidents: "edit",
+  incidents: "read",
   conversations: "read",
   users: "none",
   roles: "none",
@@ -34,15 +35,30 @@ export function permissionsFromUser(user: {
   user_metadata?: Record<string, unknown> | null;
 } | null | undefined): Record<PermissionModule, PermissionLevel> {
   const raw = user?.app_metadata?.permissions;
-  if (hasPermissionSnapshot(raw)) {
-    return normalizePermissionMap(raw);
-  }
 
-  // Compatibilidad hasta que el JWT tenga snapshot sincronizado.
   if (isSuperAdminUser(user)) {
     return emptyPermissionMap("admin");
   }
 
+  if (hasPermissionSnapshot(raw)) {
+    const normalized = normalizePermissionMap(raw);
+    // Módulos nuevos (p. ej. passengers) ausentes en JWT antiguo → defaults OPS.
+    const role = user?.app_metadata?.role ?? user?.user_metadata?.role;
+    if (role === ROLES.OPS_ADMIN) {
+      for (const module of Object.keys(OPS_DEFAULT) as PermissionModule[]) {
+        if (
+          raw &&
+          typeof raw === "object" &&
+          !(module in (raw as object))
+        ) {
+          normalized[module] = OPS_DEFAULT[module];
+        }
+      }
+    }
+    return normalized;
+  }
+
+  // Compatibilidad hasta que el JWT tenga snapshot sincronizado.
   const role = user?.app_metadata?.role ?? user?.user_metadata?.role;
   if (role === ROLES.OPS_ADMIN) {
     return { ...OPS_DEFAULT };

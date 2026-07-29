@@ -15,6 +15,8 @@ export const OPS_ROUTES = [
   "/dashboard",
   "/servicios",
   "/conductores",
+  "/usuarios",
+  "/incidentes",
   "/metricas",
   "/estado-sistema",
   "/conversaciones",
@@ -103,7 +105,8 @@ export function canAccessPath(
       pathStartsWith(pathname, "/api/drivers") ||
       pathStartsWith(pathname, "/api/metrics") ||
       pathStartsWith(pathname, "/api/system-status") ||
-      pathStartsWith(pathname, "/api/conversations")
+      pathStartsWith(pathname, "/api/conversations") ||
+      pathStartsWith(pathname, "/api/passengers")
     ) {
       return true;
     }
@@ -136,7 +139,8 @@ export function canAccessPath(
     pathStartsWith(pathname, "/api/drivers") ||
     pathStartsWith(pathname, "/api/metrics") ||
     pathStartsWith(pathname, "/api/system-status") ||
-    pathStartsWith(pathname, "/api/conversations")
+    pathStartsWith(pathname, "/api/conversations") ||
+    pathStartsWith(pathname, "/api/passengers")
   ) {
     return role === ROLES.SUPERADMIN || role === ROLES.OPS_ADMIN;
   }
