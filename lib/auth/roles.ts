@@ -2,6 +2,7 @@
 export const ROLES = {
   SUPERADMIN: "SUPERADMIN",
   OPS_ADMIN: "OPS_ADMIN",
+  DEVELOPER: "DEVELOPER",
 } as const;
 
 export type SystemRole = (typeof ROLES)[keyof typeof ROLES];
@@ -12,10 +13,15 @@ export type AppRole = string;
 export const ROLE_LABELS: Record<SystemRole, string> = {
   SUPERADMIN: "Superadministrador",
   OPS_ADMIN: "Administrador de Operaciones",
+  DEVELOPER: "Desarrollador",
 };
 
 export function isSystemRole(value: unknown): value is SystemRole {
-  return value === ROLES.SUPERADMIN || value === ROLES.OPS_ADMIN;
+  return (
+    value === ROLES.SUPERADMIN ||
+    value === ROLES.OPS_ADMIN ||
+    value === ROLES.DEVELOPER
+  );
 }
 
 /** @deprecated Prefer isSystemRole; se mantiene para código legacy. */
@@ -70,5 +76,6 @@ export function roleLabel(
   if (fallbackName) return fallbackName;
   if (code === ROLES.SUPERADMIN) return ROLE_LABELS.SUPERADMIN;
   if (code === ROLES.OPS_ADMIN) return ROLE_LABELS.OPS_ADMIN;
+  if (code === ROLES.DEVELOPER) return ROLE_LABELS.DEVELOPER;
   return code;
 }

@@ -11,7 +11,7 @@ export async function GET(request: Request) {
       action: "VIEW_BOT_MESSAGES",
       resource: "bot_messages",
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "read",
     },
     async () => {
@@ -22,6 +22,8 @@ export async function GET(request: Request) {
           categoryId: searchParams.get("categoryId") ?? undefined,
           status: searchParams.get("status") ?? undefined,
           tag: searchParams.get("tag") ?? undefined,
+          environment: searchParams.get("environment") ?? undefined,
+          module: searchParams.get("module") ?? undefined,
         });
         return NextResponse.json({ ok: true, data });
       } catch (error) {
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
       action: "BOT_MESSAGE_CREATE",
       resource: "bot_message",
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "create",
     },
     async ({ user }) => {

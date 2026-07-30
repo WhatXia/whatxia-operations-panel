@@ -11,7 +11,7 @@ export async function GET(request: Request) {
       action: "VIEW_BOT_CATEGORIES",
       resource: "bot_categories",
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "read",
     },
     async () => {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       action: "BOT_CATEGORY_CREATE",
       resource: "bot_category",
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "create",
     },
     async () => {

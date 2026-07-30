@@ -19,10 +19,30 @@ const OPS_DEFAULT: Record<PermissionModule, PermissionLevel> = {
   users: "none",
   roles: "none",
   configuration: "none",
+  bot_cms: "none",
   ai: "none",
   integrations: "none",
   audit: "none",
   exports: "read",
+};
+
+const DEVELOPER_DEFAULT: Record<PermissionModule, PermissionLevel> = {
+  dashboard: "read",
+  services: "none",
+  drivers: "none",
+  passengers: "none",
+  metrics: "none",
+  system_status: "none",
+  incidents: "none",
+  conversations: "none",
+  users: "none",
+  roles: "none",
+  configuration: "read",
+  bot_cms: "admin",
+  ai: "none",
+  integrations: "none",
+  audit: "read",
+  exports: "none",
 };
 
 function hasPermissionSnapshot(raw: unknown): raw is PermissionMap {
@@ -55,6 +75,17 @@ export function permissionsFromUser(user: {
         }
       }
     }
+    if (role === ROLES.DEVELOPER) {
+      for (const module of Object.keys(DEVELOPER_DEFAULT) as PermissionModule[]) {
+        if (
+          raw &&
+          typeof raw === "object" &&
+          !(module in (raw as object))
+        ) {
+          normalized[module] = DEVELOPER_DEFAULT[module];
+        }
+      }
+    }
     return normalized;
   }
 
@@ -62,6 +93,9 @@ export function permissionsFromUser(user: {
   const role = user?.app_metadata?.role ?? user?.user_metadata?.role;
   if (role === ROLES.OPS_ADMIN) {
     return { ...OPS_DEFAULT };
+  }
+  if (role === ROLES.DEVELOPER) {
+    return { ...DEVELOPER_DEFAULT };
   }
 
   return emptyPermissionMap("none");

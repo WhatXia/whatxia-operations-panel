@@ -50,7 +50,7 @@ export const adminNav: AdminNavItem[] = [
   { href: "/admin/roles", label: "Roles", module: "roles" },
   { href: "/admin/auditoria", label: "Auditoría", module: "audit" },
   { href: "/admin/configuracion", label: "Configuración", module: "configuration" },
-  { href: "/admin/bot", label: "Bot Manager", module: "configuration" },
+  { href: "/admin/bot", label: "Centro de Administración del Bot", module: "bot_cms" },
   { href: "/admin/ia", label: "IA", module: "ai" },
   { href: "/admin/integraciones", label: "Integraciones", module: "integrations" },
   { href: "/admin/parametros", label: "Parámetros", module: "configuration" },

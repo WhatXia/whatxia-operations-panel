@@ -62,7 +62,7 @@ Módulos con UI real + API/lib real (no stub):
 | Usuarios | `/admin/usuarios` | CRUD admin de usuarios del panel |
 | Roles y permisos | `/admin/roles` | Roles configurables + matriz + asignación |
 | Auditoría | `/admin/auditoria` | Consulta de `audit_logs` |
-| Bot Manager CMS | `/admin/bot` | Mensajes, multimedia, categorías, versiones |
+| Bot Manager CMS | `/admin/bot` | **Centro de Administración del Bot** (mensajes WA, media, versiones; rol Desarrollador) |
 | Forbidden | `/forbidden` | Destino de 403 del proxy |
 
 ---

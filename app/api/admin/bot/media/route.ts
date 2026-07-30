@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       action: "VIEW_BOT_MEDIA",
       resource: "bot_media",
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "read",
     },
     async () => {
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       action: "BOT_MEDIA_UPLOAD",
       resource: "bot_media",
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "create",
     },
     async ({ user }) => {

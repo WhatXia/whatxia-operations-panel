@@ -16,7 +16,7 @@ export async function PATCH(
       resource: "bot_category",
       resourceId: id,
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "edit",
     },
     async () => {
@@ -56,7 +56,7 @@ export async function DELETE(
       resource: "bot_category",
       resourceId: id,
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "delete",
     },
     async () => {

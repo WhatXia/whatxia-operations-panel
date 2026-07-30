@@ -1,9 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   extractVariablesFromBody,
+  isBotContentType,
+  isBotEnvironment,
   isValidMessageCode,
+  normalizeInteractivePayload,
+  normalizeLocationPayload,
   previewMessageBody,
   type BotCategory,
+  type BotContentType,
+  type BotEnvironment,
+  type BotInteractivePayload,
+  type BotLocationPayload,
   type BotMediaAsset,
   type BotMediaType,
   type BotMessageDetail,
@@ -137,6 +145,8 @@ export async function listMessages(filters?: {
   categoryId?: string;
   status?: string;
   tag?: string;
+  environment?: string;
+  module?: string;
 }): Promise<BotMessageListItem[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -198,6 +208,13 @@ export async function listMessages(filters?: {
       is_active: Boolean(row.is_active),
       category_id: (row.category_id as string | null) ?? null,
       categoryName: cat?.name ?? null,
+      content_type: isBotContentType(row.content_type)
+        ? row.content_type
+        : "text",
+      module: (row.module as string | null) ?? null,
+      environment: isBotEnvironment(row.environment)
+        ? row.environment
+        : "PRODUCTION",
       available_variables: vars,
       mediaCount: counts.get(String(row.id)) ?? 0,
       updated_at: String(row.updated_at),
@@ -215,6 +232,8 @@ export async function listMessages(filters?: {
         item.name,
         item.body,
         item.categoryName,
+        item.module,
+        item.environment,
         ...item.available_variables,
       ]
         .join(" ")
@@ -227,6 +246,12 @@ export async function listMessages(filters?: {
   }
   if (filters?.status) {
     items = items.filter((item) => item.status === filters.status);
+  }
+  if (filters?.environment) {
+    items = items.filter((item) => item.environment === filters.environment);
+  }
+  if (filters?.module) {
+    items = items.filter((item) => item.module === filters.module);
   }
   if (tagMatchIds) {
     items = items.filter((item) => tagMatchIds!.has(item.id));
@@ -281,10 +306,19 @@ export async function getMessageDetail(id: string): Promise<BotMessageDetail> {
     is_active: Boolean(data.is_active),
     category_id: (data.category_id as string | null) ?? null,
     categoryName: cat?.name ?? null,
+    content_type: isBotContentType(data.content_type)
+      ? data.content_type
+      : "text",
+    module: (data.module as string | null) ?? null,
+    environment: isBotEnvironment(data.environment)
+      ? data.environment
+      : "PRODUCTION",
     available_variables: vars,
     mediaCount: media.length,
     mediaIds,
     media,
+    location_payload: normalizeLocationPayload(data.location_payload),
+    interactive_payload: normalizeInteractivePayload(data.interactive_payload),
     updated_at: String(data.updated_at),
     updated_by_email: (data.updated_by_email as string | null) ?? null,
     created_at: String(data.created_at),
@@ -310,6 +344,11 @@ async function snapshotVersion(
     media_ids: detail.mediaIds,
     category_id: detail.category_id,
     is_active: detail.is_active,
+    content_type: detail.content_type,
+    module: detail.module,
+    environment: detail.environment,
+    location_payload: detail.location_payload,
+    interactive_payload: detail.interactive_payload,
     changed_by_email: actor.email ?? null,
     changed_by_id: actor.id ?? null,
     change_note: note,
@@ -327,6 +366,11 @@ export async function createMessage(
     category_id?: string | null;
     status?: BotMessageStatus;
     mediaIds?: string[];
+    content_type?: BotContentType;
+    module?: string | null;
+    environment?: BotEnvironment;
+    location_payload?: BotLocationPayload | null;
+    interactive_payload?: BotInteractivePayload;
   },
   actor: Actor,
 ): Promise<BotMessageDetail> {
@@ -347,6 +391,12 @@ export async function createMessage(
       category_id: input.category_id || null,
       available_variables: vars,
       status: input.status ?? "DRAFT",
+      content_type: input.content_type ?? "text",
+      module: input.module?.trim() || null,
+      environment: input.environment ?? "PRODUCTION",
+      location_payload: input.location_payload ?? null,
+      interactive_payload:
+        input.interactive_payload ?? normalizeInteractivePayload({}),
       version: 1,
       created_by_email: actor.email ?? null,
       created_by_id: actor.id ?? null,
@@ -375,6 +425,11 @@ export async function updateMessage(
     status?: BotMessageStatus;
     is_active?: boolean;
     mediaIds?: string[];
+    content_type?: BotContentType;
+    module?: string | null;
+    environment?: BotEnvironment;
+    location_payload?: BotLocationPayload | null;
+    interactive_payload?: BotInteractivePayload;
   },
   actor: Actor,
 ): Promise<BotMessageDetail> {
@@ -396,6 +451,20 @@ export async function updateMessage(
       status: input.status ?? before.status,
       is_active:
         typeof input.is_active === "boolean" ? input.is_active : before.is_active,
+      content_type: input.content_type ?? before.content_type,
+      module:
+        input.module !== undefined
+          ? input.module?.trim() || null
+          : before.module,
+      environment: input.environment ?? before.environment,
+      location_payload:
+        input.location_payload !== undefined
+          ? input.location_payload
+          : before.location_payload,
+      interactive_payload:
+        input.interactive_payload !== undefined
+          ? input.interactive_payload
+          : before.interactive_payload,
       version: before.version + 1,
       updated_by_email: actor.email ?? null,
       updated_by_id: actor.id ?? null,
@@ -455,6 +524,13 @@ export async function listMessageVersions(
     media_ids: Array.isArray(row.media_ids) ? (row.media_ids as string[]) : [],
     category_id: (row.category_id as string | null) ?? null,
     is_active: Boolean(row.is_active),
+    content_type: isBotContentType(row.content_type) ? row.content_type : null,
+    module: (row.module as string | null) ?? null,
+    environment: isBotEnvironment(row.environment) ? row.environment : null,
+    location_payload: normalizeLocationPayload(row.location_payload),
+    interactive_payload: row.interactive_payload
+      ? normalizeInteractivePayload(row.interactive_payload)
+      : null,
     changed_by_email: (row.changed_by_email as string | null) ?? null,
     change_note: (row.change_note as string | null) ?? null,
     created_at: String(row.created_at),
@@ -479,6 +555,11 @@ export async function restoreMessageVersion(
       status: target.status,
       is_active: target.is_active,
       mediaIds: target.media_ids,
+      content_type: target.content_type ?? undefined,
+      module: target.module,
+      environment: target.environment ?? undefined,
+      location_payload: target.location_payload,
+      interactive_payload: target.interactive_payload ?? undefined,
     },
     actor,
   );

@@ -1,109 +1,64 @@
-# 09 — Bot Manager CMS
+# 09 — Centro de Administración del Bot (BOT-ADMIN-001)
 
 **Producto:** WhatXia Operations Panel  
-**Sprint:** 11  
-**Estado:** Infraestructura administrativa lista (WhatXia Basic aún NO consume esta configuración)
+**Estado:** Infraestructura administrativa lista (WhatXia Basic aún NO consume esta configuración en runtime)
 
 ---
 
 ## Propósito
 
-Centro de administración de contenido del bot: mensajes, variables, multimedia, categorías, versiones y publicación.
+Administrar el comportamiento y contenido del bot desde el Operations Center **sin modificar código**:
 
-- No modifica el runtime del bot ni WhatsApp Cloud API.
-- No cambia prompts ni flujo conversacional.
-- El consumo futuro por WhatXia Basic será por **IDs únicos** (`code`), nunca por texto fijo.
+- Mensajes (texto/emoji, imagen, sticker, audio, video, documento, ubicación, interactivo)
+- Componentes WhatsApp (botones, listas, opciones, variables, orden)
+- Biblioteca multimedia
+- Configuración por mensaje (activo, categoría, módulo, ambiente, versión, borrador/publicado)
+- Historial con quién/cuándo y restauración
+- Vista previa estilo WhatsApp
 
----
-
-## Migración
-
-Archivo: `supabase/migrations/004_bot_manager_cms.sql`
-
-Aplicar en el SQL Editor de Supabase (mismo proyecto que el panel).
+Acceso exclusivo vía permiso `bot_cms` (rol **Desarrollador** / SUPERADMIN). Los operadores (`OPS_ADMIN`) no pueden modificar mensajes ni flujos.
 
 ---
 
-## Tablas nuevas
+## Migraciones
 
-### `bot_message_categories`
+1. `supabase/migrations/004_bot_manager_cms.sql` — esquema base CMS  
+2. `supabase/migrations/009_bot_admin_center.sql` — extensión BOT-ADMIN-001 + rol DEVELOPER  
 
-Categorías configurables (Bienvenida, Movilidad, etc.).
-
-| Columna | Tipo | Notas |
-|--------|------|--------|
-| `id` | uuid PK | |
-| `code` | text unique | Ej. `BIENVENIDA` |
-| `name` | text | |
-| `description` | text | |
-| `is_active` | boolean | |
-| `sort_order` | integer | |
-| `created_at` / `updated_at` | timestamptz | |
-
-### `bot_messages`
-
-Mensajes CMS consumibles a futuro por `code`.
-
-| Columna | Tipo | Notas |
-|--------|------|--------|
-| `id` | uuid PK | |
-| `code` | text unique | Ej. `WELCOME_MESSAGE` |
-| `name` | text | |
-| `category_id` | uuid FK nullable | → categorías |
-| `body` | text | Soporta `{{variable}}` |
-| `available_variables` | jsonb | Detectadas del body |
-| `status` | text | `DRAFT` \| `PUBLISHED` |
-| `version` | integer | Incrementa en cada edición |
-| `is_active` | boolean | Soft enable |
-| `created_by_*` / `updated_by_*` | email/id | Responsable |
-| `created_at` / `updated_at` | timestamptz | |
-
-Solo mensajes `PUBLISHED` deberán usarse cuando Basic se integre.
-
-### `bot_message_versions`
-
-Historial completo (quién, cuándo, snapshot de body/name/status/media).
-
-| Columna | Tipo | Notas |
-|--------|------|--------|
-| `id` | uuid PK | |
-| `message_id` | uuid FK | cascade delete |
-| `version` | integer | unique por mensaje |
-| `body`, `name`, `status`, … | snapshot | |
-| `media_ids` | jsonb | IDs asociados en ese momento |
-| `changed_by_email` / `changed_by_id` | | |
-| `change_note` | text | |
-| `created_at` | timestamptz | |
-
-Restaurar = aplicar snapshot y generar nueva versión.
-
-### `bot_media_assets`
-
-Biblioteca: sticker, image, gif, video, audio, pdf.
-
-| Columna | Tipo | Notas |
-|--------|------|--------|
-| `id` | uuid PK | |
-| `code` | text unique nullable | Opcional |
-| `name`, `description` | text | |
-| `media_type` | text | tipos cerrados |
-| `mime_type`, `size_bytes` | | |
-| `storage_path` | text | bucket `bot-cms-media` |
-| `public_url` / `external_url` | text | preview / URL externa |
-| `tags` | text[] | |
-| `status` | `ACTIVE` \| `INACTIVE` | |
-| timestamps / created_by | | |
-
-### `bot_message_media`
-
-N:M mensaje ↔ media con `sort_order`.
+Guía: `scripts/apply-bot-admin-center-migration.md`
 
 ---
 
-## Storage
+## Campos de mensaje (009)
 
-Bucket privado: `bot-cms-media` (límite 50 MB).  
-El panel accede con **service role**; RLS deniega `anon`/`authenticated` en tablas CMS.
+| Campo | Valores / notas |
+|--------|------------------|
+| `content_type` | `text` \| `image` \| `sticker` \| `audio` \| `video` \| `document` \| `location` \| `interactive` |
+| `module` | Catálogo libre (ONBOARDING, MOVILIDAD, …) |
+| `environment` | `PRODUCTION` \| `TEST` |
+| `location_payload` | jsonb `{ latitude, longitude, name?, address? }` |
+| `interactive_payload` | jsonb botones / listas / opciones + orden |
+| `status` | `DRAFT` \| `PUBLISHED` |
+| `is_active` | Activo / inactivo |
+| `version` | Incrementa en cada edición |
+
+Las versiones guardan snapshot de body, media, content_type, module, environment, location e interactive.
+
+### Media
+
+Tipos: `sticker`, `image`, `gif`, `video`, `audio`, `pdf`, `document`.
+
+---
+
+## Seguridad
+
+| Rol | `bot_cms` |
+|-----|-----------|
+| SUPERADMIN | admin |
+| DEVELOPER | admin |
+| OPS_ADMIN | none |
+
+APIs bajo `/api/admin/bot/*` exigen módulo `bot_cms`. Mutaciones: reautenticación + auditoría.
 
 ---
 
@@ -113,39 +68,25 @@ El panel accede con **service role**; RLS deniega `anon`/`authenticated` en tabl
 |--------|------|--------|
 | GET/POST | `/api/admin/bot/categories` | Listar / crear |
 | PATCH/DELETE | `/api/admin/bot/categories/[id]` | Editar / eliminar |
-| GET/POST | `/api/admin/bot/messages` | Listar (q, category, status, tag) / crear |
+| GET/POST | `/api/admin/bot/messages` | Listar (q, category, status, tag, environment, module) / crear |
 | GET/PATCH/DELETE | `/api/admin/bot/messages/[id]` | Detalle / editar / eliminar |
 | GET/POST | `/api/admin/bot/messages/[id]/versions` | Historial / restaurar |
 | GET/POST | `/api/admin/bot/media` | Listar / upload multipart o URL JSON |
 | PATCH/DELETE | `/api/admin/bot/media/[id]` | Editar / eliminar |
 
-Permiso: módulo `configuration`.  
-Mutaciones: reautenticación + auditoría (`BOT_MESSAGE_*`, `BOT_MEDIA_*`, `BOT_CATEGORY_*`).
-
 ---
 
 ## UI
 
-Ruta: `/admin/bot` — **Bot Manager CMS**
+Ruta: `/admin/bot` — **Centro de Administración del Bot**
 
 Pestañas: Mensajes · Multimedia · Categorías
 
-Incluye preview de variables con datos de ejemplo del catálogo (`nombre`, `origen`, `destino`, `tarifa`, `conductor`, `placa`, `tiempo_llegada`).
+Incluye editor de componentes WA, emojis rápidos, variables (`{{nombre}}`, …) y preview tipo WhatsApp.
 
 ---
 
-## Semillas
+## Integración futura
 
-Categorías ejemplo + mensajes borrador:
-
-- `WELCOME_MESSAGE`
-- `TRIP_CONFIRMED`
-- `NO_DRIVERS_AVAILABLE`
-- `TRIP_COMPLETED`
-
----
-
-## Integración futura (fuera de este sprint)
-
-WhatXia Basic deberá resolver contenido por `code` donde `status = 'PUBLISHED'` (y opcionalmente `is_active`), incluyendo media asociada.  
+WhatXia Basic deberá resolver contenido por `code` donde `status = 'PUBLISHED'` (y opcionalmente `is_active` / `environment`).  
 Este panel no escribe ni lee el runtime del bot hoy.

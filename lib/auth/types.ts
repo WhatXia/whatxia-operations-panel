@@ -66,6 +66,7 @@ export function toAuthUserView(user: {
     userHasPermission(subject, "roles", "read") ||
     userHasPermission(subject, "audit", "read") ||
     userHasPermission(subject, "configuration", "read") ||
+    userHasPermission(subject, "bot_cms", "read") ||
     userHasPermission(subject, "ai", "read") ||
     userHasPermission(subject, "integrations", "read");
 

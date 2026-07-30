@@ -1,16 +1,27 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { InteractivePayloadEditor } from "@/components/admin/bot/InteractivePayloadEditor";
+import { WhatsAppPreview } from "@/components/admin/bot/WhatsAppPreview";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useSecureFetch } from "@/components/security/ReauthProvider";
 import {
+  BOT_CONTENT_TYPES,
+  BOT_CONTENT_TYPE_LABELS,
+  BOT_ENVIRONMENT_LABELS,
+  BOT_ENVIRONMENTS,
   BOT_MEDIA_TYPES,
   BOT_MEDIA_TYPE_LABELS,
+  BOT_MESSAGE_MODULES,
   BOT_VARIABLE_CATALOG,
+  emptyInteractivePayload,
   extractVariablesFromBody,
-  previewMessageBody,
   type BotCategory,
+  type BotContentType,
+  type BotEnvironment,
+  type BotInteractivePayload,
+  type BotLocationPayload,
   type BotMediaAsset,
   type BotMediaType,
   type BotMessageDetail,
@@ -20,6 +31,21 @@ import {
 } from "@/lib/bot-cms/types";
 
 type MainTab = "messages" | "media" | "categories";
+
+const QUICK_EMOJIS = [
+  "👋",
+  "🚗",
+  "📍",
+  "✅",
+  "❌",
+  "⚠️",
+  "💰",
+  "⏱️",
+  "🎉",
+  "📱",
+  "🙏",
+  "✨",
+];
 
 function formatBytes(bytes: number | null): string {
   if (bytes == null) return "—";
@@ -67,6 +93,8 @@ export function BotManagerView() {
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [environmentFilter, setEnvironmentFilter] = useState("");
+  const [moduleFilter, setModuleFilter] = useState("");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<BotMessageDetail | null>(null);
@@ -78,6 +106,20 @@ export function BotManagerView() {
   const [editCategoryId, setEditCategoryId] = useState("");
   const [editStatus, setEditStatus] = useState<BotMessageStatus>("DRAFT");
   const [editMediaIds, setEditMediaIds] = useState<string[]>([]);
+  const [editContentType, setEditContentType] =
+    useState<BotContentType>("text");
+  const [editModule, setEditModule] = useState("");
+  const [editEnvironment, setEditEnvironment] =
+    useState<BotEnvironment>("PRODUCTION");
+  const [editLocation, setEditLocation] = useState<BotLocationPayload>({
+    latitude: 4.711,
+    longitude: -74.0721,
+    name: "",
+    address: "",
+  });
+  const [editInteractive, setEditInteractive] = useState<BotInteractivePayload>(
+    emptyInteractivePayload(),
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
@@ -96,13 +138,14 @@ export function BotManagerView() {
     [messages, selectedId],
   );
 
-  const livePreview = useMemo(
-    () => previewMessageBody(editBody),
-    [editBody],
-  );
   const liveVars = useMemo(
     () => extractVariablesFromBody(editBody),
     [editBody],
+  );
+
+  const previewMedia = useMemo(
+    () => media.filter((asset) => editMediaIds.includes(asset.id)),
+    [media, editMediaIds],
   );
 
   const loadCategories = useCallback(async () => {
@@ -122,6 +165,8 @@ export function BotManagerView() {
     if (statusFilter) params.set("status", statusFilter);
     if (categoryFilter) params.set("categoryId", categoryFilter);
     if (tagFilter.trim()) params.set("tag", tagFilter.trim());
+    if (environmentFilter) params.set("environment", environmentFilter);
+    if (moduleFilter) params.set("module", moduleFilter);
     const response = await fetch(
       `/api/admin/bot/messages?${params.toString()}`,
       { cache: "no-store" },
@@ -131,7 +176,7 @@ export function BotManagerView() {
       throw new Error(payload.error || "Error al cargar mensajes");
     }
     setMessages(payload.data);
-  }, [q, statusFilter, categoryFilter, tagFilter]);
+  }, [q, statusFilter, categoryFilter, tagFilter, environmentFilter, moduleFilter]);
 
   const loadMedia = useCallback(async () => {
     const params = new URLSearchParams();
@@ -180,6 +225,20 @@ export function BotManagerView() {
     setEditCategoryId(data.category_id ?? "");
     setEditStatus(data.status);
     setEditMediaIds(data.mediaIds);
+    setEditContentType(data.content_type ?? "text");
+    setEditModule(data.module ?? "");
+    setEditEnvironment(data.environment ?? "PRODUCTION");
+    setEditLocation(
+      data.location_payload ?? {
+        latitude: 4.711,
+        longitude: -74.0721,
+        name: "",
+        address: "",
+      },
+    );
+    setEditInteractive(
+      data.interactive_payload ?? emptyInteractivePayload(),
+    );
   }, []);
 
   const loadVersions = useCallback(async (id: string) => {
@@ -250,6 +309,12 @@ export function BotManagerView() {
             category_id: editCategoryId || null,
             status: editStatus,
             mediaIds: editMediaIds,
+            content_type: editContentType,
+            module: editModule || null,
+            environment: editEnvironment,
+            location_payload:
+              editContentType === "location" ? editLocation : null,
+            interactive_payload: editInteractive,
           }),
         },
       );
@@ -521,7 +586,10 @@ export function BotManagerView() {
   }
 
   function insertVariable(key: string) {
-    const token = `{{${key}}}`;
+    insertTextAtCursor(`{{${key}}}`);
+  }
+
+  function insertTextAtCursor(token: string) {
     const el = document.getElementById(
       "bot-message-body",
     ) as HTMLTextAreaElement | null;
@@ -562,8 +630,8 @@ export function BotManagerView() {
   return (
     <div>
       <PageHeader
-        title="Bot Manager CMS"
-        description="Administración de mensajes, multimedia y categorías del bot. WhatXia Basic aún no consume esta configuración."
+        title="Centro de Administración del Bot"
+        description="Administra mensajes, componentes de WhatsApp, multimedia y versiones del bot sin modificar código. Acceso exclusivo para Desarrollador."
         actions={
           tab === "messages" ? (
             <button
@@ -624,7 +692,7 @@ export function BotManagerView() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-muted">Cargando Bot Manager…</p>
+        <p className="text-sm text-muted">Cargando Centro de Administración del Bot…</p>
       ) : null}
 
       {createOpen ? (
@@ -811,6 +879,30 @@ export function BotManagerView() {
                     </option>
                   ))}
                 </select>
+                <select
+                  value={environmentFilter}
+                  onChange={(e) => setEnvironmentFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
+                >
+                  <option value="">Todos ambientes</option>
+                  {BOT_ENVIRONMENTS.map((env) => (
+                    <option key={env} value={env}>
+                      {BOT_ENVIRONMENT_LABELS[env]}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={moduleFilter}
+                  onChange={(e) => setModuleFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
+                >
+                  <option value="">Todos módulos</option>
+                  {BOT_MESSAGE_MODULES.map((mod) => (
+                    <option key={mod} value={mod}>
+                      {mod}
+                    </option>
+                  ))}
+                </select>
               </div>
               <input
                 value={tagFilter}
@@ -846,7 +938,10 @@ export function BotManagerView() {
                     <p className="mt-0.5 text-sm text-foreground">{item.name}</p>
                     <p className="mt-0.5 text-xs text-muted">
                       {item.categoryName || "Sin categoría"} · v{item.version}
+                      {item.module ? ` · ${item.module}` : ""}
+                      {` · ${BOT_ENVIRONMENT_LABELS[item.environment]}`}
                       {item.mediaCount > 0 ? ` · ${item.mediaCount} media` : ""}
+                      {!item.is_active ? " · INACTIVO" : ""}
                     </p>
                   </button>
                 </li>
@@ -944,6 +1039,53 @@ export function BotManagerView() {
                     </select>
                   </label>
                   <label className="grid gap-1 text-sm">
+                    <span className="text-muted">Tipo de contenido</span>
+                    <select
+                      value={editContentType}
+                      onChange={(e) =>
+                        setEditContentType(e.target.value as BotContentType)
+                      }
+                      className="rounded-lg border border-border bg-background px-3 py-2"
+                    >
+                      {BOT_CONTENT_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {BOT_CONTENT_TYPE_LABELS[type]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-muted">Módulo</span>
+                    <select
+                      value={editModule}
+                      onChange={(e) => setEditModule(e.target.value)}
+                      className="rounded-lg border border-border bg-background px-3 py-2"
+                    >
+                      <option value="">Sin módulo</option>
+                      {BOT_MESSAGE_MODULES.map((mod) => (
+                        <option key={mod} value={mod}>
+                          {mod}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-muted">Ambiente</span>
+                    <select
+                      value={editEnvironment}
+                      onChange={(e) =>
+                        setEditEnvironment(e.target.value as BotEnvironment)
+                      }
+                      className="rounded-lg border border-border bg-background px-3 py-2"
+                    >
+                      {BOT_ENVIRONMENTS.map((env) => (
+                        <option key={env} value={env}>
+                          {BOT_ENVIRONMENT_LABELS[env]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
                     <span className="text-muted">Estado</span>
                     <select
                       value={editStatus}
@@ -956,11 +1098,21 @@ export function BotManagerView() {
                       <option value="PUBLISHED">PUBLICADO</option>
                     </select>
                   </label>
-                  <div className="grid gap-1 text-sm">
-                    <span className="text-muted">Variables detectadas</span>
-                    <div className="flex min-h-[42px] flex-wrap gap-1 rounded-lg border border-border bg-background px-2 py-2">
+                  <div className="grid gap-1 text-sm md:col-span-2">
+                    <span className="text-muted">
+                      Versión / Activo / Variables
+                    </span>
+                    <div className="flex min-h-[42px] flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-2 py-2">
+                      <StatusBadge
+                        label={`v${detail.version}`}
+                        tone="neutral"
+                      />
+                      <StatusBadge
+                        label={detail.is_active ? "ACTIVO" : "INACTIVO"}
+                        tone={detail.is_active ? "success" : "warning"}
+                      />
                       {liveVars.length === 0 ? (
-                        <span className="text-xs text-muted">Ninguna</span>
+                        <span className="text-xs text-muted">Sin variables</span>
                       ) : (
                         liveVars.map((v) => (
                           <StatusBadge key={v} label={`{{${v}}}`} tone="info" />
@@ -971,6 +1123,19 @@ export function BotManagerView() {
                 </div>
 
                 <div>
+                  <p className="mb-1 text-sm text-muted">Insertar emoji</p>
+                  <div className="mb-2 flex flex-wrap gap-1">
+                    {QUICK_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => insertTextAtCursor(emoji)}
+                        className="rounded-md border border-border bg-background px-2 py-1 text-sm hover:border-brand/50"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                   <p className="mb-1 text-sm text-muted">Insertar variable</p>
                   <div className="mb-2 flex flex-wrap gap-1">
                     {BOT_VARIABLE_CATALOG.map((item) => (
@@ -990,18 +1155,90 @@ export function BotManagerView() {
                     onChange={(e) => setEditBody(e.target.value)}
                     rows={8}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    placeholder="Texto del mensaje…"
+                    placeholder="Texto del mensaje (soporta emoji y {{variables}})…"
                   />
                 </div>
 
-                <div className="rounded-lg border border-border bg-background p-3">
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">
-                    Vista previa
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm text-foreground">
-                    {livePreview || "—"}
-                  </p>
-                </div>
+                {editContentType === "location" ? (
+                  <div className="grid gap-3 rounded-lg border border-border bg-background p-3 md:grid-cols-2">
+                    <p className="text-sm font-medium md:col-span-2">
+                      Ubicación
+                    </p>
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-muted">Latitud</span>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editLocation.latitude}
+                        onChange={(e) =>
+                          setEditLocation((prev) => ({
+                            ...prev,
+                            latitude: Number(e.target.value),
+                          }))
+                        }
+                        className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-muted">Longitud</span>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editLocation.longitude}
+                        onChange={(e) =>
+                          setEditLocation((prev) => ({
+                            ...prev,
+                            longitude: Number(e.target.value),
+                          }))
+                        }
+                        className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-muted">Nombre</span>
+                      <input
+                        value={editLocation.name ?? ""}
+                        onChange={(e) =>
+                          setEditLocation((prev) => ({
+                            ...prev,
+                            name: e.target.value,
+                          }))
+                        }
+                        className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-muted">Dirección</span>
+                      <input
+                        value={editLocation.address ?? ""}
+                        onChange={(e) =>
+                          setEditLocation((prev) => ({
+                            ...prev,
+                            address: e.target.value,
+                          }))
+                        }
+                        className="rounded-lg border border-border bg-surface-elevated px-3 py-2"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                {editContentType === "interactive" ? (
+                  <InteractivePayloadEditor
+                    value={editInteractive}
+                    onChange={setEditInteractive}
+                  />
+                ) : null}
+
+                <WhatsAppPreview
+                  body={editBody}
+                  contentType={editContentType}
+                  media={previewMedia}
+                  location={
+                    editContentType === "location" ? editLocation : null
+                  }
+                  interactive={editInteractive}
+                />
 
                 <div>
                   <p className="mb-2 text-sm font-medium text-foreground">

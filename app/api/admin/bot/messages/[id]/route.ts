@@ -20,7 +20,7 @@ export async function GET(
       resource: "bot_message",
       resourceId: id,
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "read",
     },
     async () => {
@@ -63,7 +63,7 @@ export async function PATCH(
       resource: "bot_message",
       resourceId: id,
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "edit",
     },
     async ({ user }) => {
@@ -119,7 +119,7 @@ export async function DELETE(
       resource: "bot_message",
       resourceId: id,
       adminOnly: true,
-      module: "configuration",
+      module: "bot_cms",
       level: "delete",
     },
     async () => {

@@ -41,6 +41,7 @@ export const PERMISSION_MODULES = [
   { key: "users", label: "Usuarios Admin" },
   { key: "roles", label: "Roles" },
   { key: "configuration", label: "Configuración" },
+  { key: "bot_cms", label: "Centro Admin Bot" },
   { key: "ai", label: "IA" },
   { key: "integrations", label: "Integraciones" },
   { key: "audit", label: "Auditoría" },
@@ -127,8 +128,13 @@ export function permissionModuleForPath(pathname: string): PermissionModule | nu
   if (pathname.startsWith("/admin/ia")) return "ai";
   if (pathname.startsWith("/admin/integraciones")) return "integrations";
   if (
-    pathname.startsWith("/admin/configuracion") ||
     pathname.startsWith("/admin/bot") ||
+    pathname.startsWith("/api/admin/bot")
+  ) {
+    return "bot_cms";
+  }
+  if (
+    pathname.startsWith("/admin/configuracion") ||
     pathname.startsWith("/admin/parametros") ||
     pathname === "/admin"
   ) {
