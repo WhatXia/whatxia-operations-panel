@@ -1,10 +1,5 @@
-import { AdminStubPage } from "@/components/admin/AdminStubPage";
+import { ParametrosHub } from "@/components/admin/parametros/ParametrosHub";
 
 export default function Page() {
-  return (
-    <AdminStubPage
-      title="Parámetros"
-      description="Parámetros globales del sistema."
-    />
-  );
+  return <ParametrosHub />;
 }
