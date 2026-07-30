@@ -4,6 +4,7 @@ import { displayPassengerName } from "@/lib/passengers/format";
 import {
   computeReferralStats,
   conversionRate,
+  countInvitedPersons,
   filterReferralItems,
   formatConversionPercent,
   isMissingRelationError,
@@ -12,9 +13,10 @@ import {
   sortReferralItems,
 } from "@/lib/referrals/compute";
 import {
+  buildReferralInviteUrl,
   formatReferralDate,
+  normalizeReferralCode,
   referralStatusLabel,
-  resolveInviteUrl,
 } from "@/lib/referrals/format";
 import type {
   DriverReferralListItem,
@@ -24,22 +26,32 @@ import type {
 } from "@/lib/referrals/types";
 import { emptyReferralStats, emptyReferralsDashboard } from "@/lib/referrals/types";
 
-type LinkRow = {
-  driver_id: string;
-  code: string;
-  invite_url: string;
+type DriverRow = {
+  id: string;
+  referral_code: string | null;
+  name: string | null;
+  full_name: string | null;
+  preferred_name: string | null;
+  phone: string | null;
+  created_at: string | null;
+};
+
+type AttributionRow = {
+  id: string;
+  referrer_driver_id: string;
+  passenger_id: string;
+  referral_code: string;
   created_at: string;
 };
 
-type ReferralRow = {
+type EventRow = {
   id: string;
-  driver_id: string;
+  event_type: string;
   referral_code: string;
-  invitee_phone: string | null;
-  invitee_name: string | null;
+  referrer_driver_id: string | null;
   passenger_id: string | null;
-  invited_at: string;
-  registered_at: string | null;
+  meta: Record<string, unknown> | null;
+  created_at: string;
 };
 
 type PassengerLite = {
@@ -52,14 +64,6 @@ type PassengerLite = {
   status: string | null;
   registered_at: string | null;
   created_at: string | null;
-};
-
-type DriverLite = {
-  id: string;
-  name: string | null;
-  full_name: string | null;
-  preferred_name: string | null;
-  phone: string | null;
 };
 
 const REFERRAL_SORTS = new Set<ReferralListSort>([
@@ -95,51 +99,47 @@ async function loadPassengersByIds(
   return map;
 }
 
-async function loadFirstCompletedSet(
-  supabase: ReturnType<typeof createAdminClient>,
-  passengerIds: string[],
-): Promise<Set<string>> {
-  const set = new Set<string>();
-  if (passengerIds.length === 0) return set;
-  const { data } = await supabase
-    .from("trips")
-    .select("passenger_id, status")
-    .in("passenger_id", passengerIds)
-    .eq("status", "COMPLETED");
-  for (const row of (data ?? []) as Array<{ passenger_id: string | null }>) {
-    if (row.passenger_id) set.add(row.passenger_id);
-  }
-  return set;
-}
-
 function toListItem(
-  row: ReferralRow,
+  attr: AttributionRow,
   passenger: PassengerLite | null,
   hasFirstService: boolean,
 ): DriverReferralListItem {
-  const status = passenger?.status?.trim() || "INVITED";
-  const name = passenger
-    ? displayPassengerName(passenger)
-    : row.invitee_name?.trim() ||
-      row.invitee_phone?.trim() ||
-      "Invitado sin nombre";
+  const status = passenger?.status?.trim() || "ACTIVE";
   const registeredAt =
-    row.registered_at ||
-    passenger?.registered_at ||
-    passenger?.created_at ||
-    null;
+    passenger?.registered_at || passenger?.created_at || attr.created_at;
 
   return {
-    id: row.id,
-    name,
+    id: attr.id,
+    name: passenger
+      ? displayPassengerName(passenger)
+      : `Pasajero ${attr.passenger_id.slice(0, 8)}`,
     registeredAt,
-    registeredAtLabel: registeredAt
-      ? formatReferralDate(registeredAt)
-      : formatReferralDate(row.invited_at),
+    registeredAtLabel: formatReferralDate(registeredAt),
     status,
     statusLabel: referralStatusLabel(status),
     hasFirstService,
     firstServiceLabel: hasFirstService ? "Sí" : "No",
+  };
+}
+
+function unavailableSnapshot(
+  reason: string,
+  query: string,
+  sort: ReferralListSort,
+  pageSize: number,
+): DriverReferralsSnapshot {
+  return {
+    available: false,
+    unavailableReason: reason,
+    link: null,
+    stats: emptyReferralStats(),
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize,
+    totalPages: 1,
+    query,
+    sort,
   };
 }
 
@@ -158,115 +158,132 @@ export async function fetchDriverReferralsSnapshot(
   const page = options?.page ?? 1;
   const pageSize = options?.pageSize ?? 10;
 
-  const linkRes = await supabase
-    .from("driver_referral_links")
-    .select("driver_id, code, invite_url, created_at")
-    .eq("driver_id", driverId)
+  const driverRes = await supabase
+    .from("drivers")
+    .select("id, referral_code, name, full_name, preferred_name, phone, created_at")
+    .eq("id", driverId)
     .maybeSingle();
 
-  if (linkRes.error && isMissingRelationError(linkRes.error)) {
-    return {
-      available: false,
-      unavailableReason:
-        "Esquema de referidos no aplicado (REF-001 / migración 007).",
-      link: null,
-      stats: emptyReferralStats(),
-      items: [],
-      total: 0,
-      page: 1,
-      pageSize,
-      totalPages: 1,
+  if (driverRes.error) {
+    if (isMissingRelationError(driverRes.error)) {
+      return unavailableSnapshot(
+        "No se pudo leer drivers (esquema incompleto).",
+        query,
+        sort,
+        pageSize,
+      );
+    }
+    throw new Error(driverRes.error.message || "Error al leer conductor");
+  }
+
+  if (!driverRes.data) {
+    throw new Error("Conductor no encontrado");
+  }
+
+  const driver = driverRes.data as DriverRow;
+  const code = driver.referral_code
+    ? normalizeReferralCode(driver.referral_code)
+    : null;
+
+  const [eventsRes, attrsRes] = await Promise.all([
+    supabase
+      .from("referral_events")
+      .select(
+        "id, event_type, referral_code, referrer_driver_id, passenger_id, meta, created_at",
+      )
+      .eq("referrer_driver_id", driverId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("referral_attributions")
+      .select(
+        "id, referrer_driver_id, passenger_id, referral_code, created_at",
+      )
+      .eq("referrer_driver_id", driverId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (
+    (eventsRes.error && isMissingRelationError(eventsRes.error)) ||
+    (attrsRes.error && isMissingRelationError(attrsRes.error))
+  ) {
+    return unavailableSnapshot(
+      "Esquema de referidos del bot no aplicado (migraciones 040/041).",
       query,
       sort,
-    };
-  }
-
-  if (linkRes.error) {
-    throw new Error(linkRes.error.message || "Error al leer enlace de referido");
-  }
-
-  const referralsRes = await supabase
-    .from("driver_referrals")
-    .select(
-      "id, driver_id, referral_code, invitee_phone, invitee_name, passenger_id, invited_at, registered_at",
-    )
-    .eq("driver_id", driverId)
-    .order("invited_at", { ascending: false });
-
-  if (referralsRes.error && isMissingRelationError(referralsRes.error)) {
-    return {
-      available: false,
-      unavailableReason:
-        "Esquema de referidos no aplicado (REF-001 / migración 007).",
-      link: null,
-      stats: emptyReferralStats(),
-      items: [],
-      total: 0,
-      page: 1,
       pageSize,
-      totalPages: 1,
-      query,
-      sort,
-    };
-  }
-
-  if (referralsRes.error) {
-    throw new Error(
-      referralsRes.error.message || "Error al listar referidos",
     );
   }
 
-  const linkRow = (linkRes.data as LinkRow | null) ?? null;
-  const referrals = (referralsRes.data ?? []) as ReferralRow[];
-  const passengerIds = referrals
-    .map((r) => r.passenger_id)
-    .filter((id): id is string => Boolean(id));
+  if (eventsRes.error) {
+    throw new Error(eventsRes.error.message || "Error al leer referral_events");
+  }
+  if (attrsRes.error) {
+    throw new Error(
+      attrsRes.error.message || "Error al leer referral_attributions",
+    );
+  }
 
-  const [passengers, firstCompleted] = await Promise.all([
-    loadPassengersByIds(supabase, passengerIds),
-    loadFirstCompletedSet(supabase, passengerIds),
-  ]);
+  const events = (eventsRes.data ?? []) as EventRow[];
+  const attributions = (attrsRes.data ?? []) as AttributionRow[];
+
+  const linkOpened = events.filter((e) => e.event_type === "link_opened");
+  const registeredEvents = events.filter(
+    (e) => e.event_type === "passenger_registered",
+  );
+  const conversionPassengerIds = new Set(
+    events
+      .filter((e) => e.event_type === "conversion" && e.passenger_id)
+      .map((e) => e.passenger_id as string),
+  );
+
+  const passengerIds = attributions.map((a) => a.passenger_id);
+  const passengers = await loadPassengersByIds(supabase, passengerIds);
 
   let beta = 0;
   let active = 0;
-  let firstServiceCompleted = 0;
-  const registered = passengerIds.length;
-
   for (const id of passengerIds) {
-    const passenger = passengers.get(id);
-    const status = passenger?.status ?? "";
+    const status = passengers.get(id)?.status ?? "";
     if (status === "BETA") beta += 1;
     if (status === "ACTIVE") active += 1;
-    if (firstCompleted.has(id)) firstServiceCompleted += 1;
   }
 
-  const allItems = referrals.map((row) => {
-    const passenger = row.passenger_id
-      ? passengers.get(row.passenger_id) ?? null
-      : null;
-    const hasFirst = row.passenger_id
-      ? firstCompleted.has(row.passenger_id)
-      : false;
-    return toListItem(row, passenger, hasFirst);
-  });
+  // Registrados: eventos passenger_registered; fallback a attributions (fuente Ops).
+  const registered = Math.max(registeredEvents.length, attributions.length);
+  const invited = countInvitedPersons(linkOpened);
+  const firstServiceCompleted = conversionPassengerIds.size;
+
+  const allItems = attributions.map((attr) =>
+    toListItem(
+      attr,
+      passengers.get(attr.passenger_id) ?? null,
+      conversionPassengerIds.has(attr.passenger_id),
+    ),
+  );
 
   const filtered = filterReferralItems(allItems, query);
   const sorted = sortReferralItems(filtered, sort);
   const pageResult = paginateItems(sorted, page, pageSize);
 
+  const linkCreatedAt =
+    linkOpened[0]?.created_at ??
+    events[0]?.created_at ??
+    null;
+
   return {
     available: true,
     unavailableReason: null,
-    link: linkRow
+    link: code
       ? {
-          code: linkRow.code,
-          inviteUrl: resolveInviteUrl(linkRow.invite_url, linkRow.code),
-          createdAt: linkRow.created_at,
-          createdAtLabel: formatReferralDate(linkRow.created_at),
+          code,
+          inviteUrl: buildReferralInviteUrl(code),
+          createdAt: linkCreatedAt,
+          createdAtLabel: linkCreatedAt
+            ? formatReferralDate(linkCreatedAt)
+            : "—",
         }
       : null,
     stats: computeReferralStats({
-      invited: referrals.length,
+      invited,
       registered,
       beta,
       active,
@@ -285,91 +302,92 @@ export async function fetchDriverReferralsSnapshot(
 export async function fetchReferralsDashboardBlock(): Promise<ReferralsDashboardBlock> {
   const supabase = createAdminClient();
 
-  const linksRes = await supabase
-    .from("driver_referral_links")
-    .select("driver_id, code");
+  const [eventsRes, attrsRes] = await Promise.all([
+    supabase
+      .from("referral_events")
+      .select(
+        "id, event_type, referral_code, referrer_driver_id, passenger_id, meta, created_at",
+      ),
+    supabase
+      .from("referral_attributions")
+      .select("id, referrer_driver_id, passenger_id, referral_code, created_at"),
+  ]);
 
-  if (linksRes.error && isMissingRelationError(linksRes.error)) {
+  if (
+    (eventsRes.error && isMissingRelationError(eventsRes.error)) ||
+    (attrsRes.error && isMissingRelationError(attrsRes.error))
+  ) {
     return {
       ...emptyReferralsDashboard(),
       unavailableReason:
-        "Esquema de referidos no aplicado (REF-001 / migración 007).",
+        "Esquema de referidos del bot no aplicado (migraciones 040/041).",
     };
   }
 
-  if (linksRes.error) {
-    throw new Error(linksRes.error.message || "Error al leer referidos");
+  if (eventsRes.error) {
+    throw new Error(eventsRes.error.message || "Error al leer referral_events");
+  }
+  if (attrsRes.error) {
+    throw new Error(
+      attrsRes.error.message || "Error al leer referral_attributions",
+    );
   }
 
-  const referralsRes = await supabase
-    .from("driver_referrals")
-    .select("id, driver_id, passenger_id");
+  const events = (eventsRes.data ?? []) as EventRow[];
+  const attributions = (attrsRes.data ?? []) as AttributionRow[];
 
-  if (referralsRes.error && isMissingRelationError(referralsRes.error)) {
-    return {
-      ...emptyReferralsDashboard(),
-      unavailableReason:
-        "Esquema de referidos no aplicado (REF-001 / migración 007).",
-    };
-  }
-
-  if (referralsRes.error) {
-    throw new Error(referralsRes.error.message || "Error al agregar referidos");
-  }
-
-  const referrals = (referralsRes.data ?? []) as Array<{
-    id: string;
-    driver_id: string;
-    passenger_id: string | null;
-  }>;
-
-  const passengerIds = Array.from(
-    new Set(
-      referrals
-        .map((r) => r.passenger_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
+  const linkOpened = events.filter((e) => e.event_type === "link_opened");
+  const registeredEvents = events.filter(
+    (e) => e.event_type === "passenger_registered",
   );
 
+  const passengerIds = Array.from(
+    new Set(attributions.map((a) => a.passenger_id)),
+  );
   const passengers = await loadPassengersByIds(supabase, passengerIds);
-  const driverIds = Array.from(new Set(referrals.map((r) => r.driver_id)));
-
-  const driversRes =
-    driverIds.length > 0
-      ? await supabase
-          .from("drivers")
-          .select("id, name, full_name, preferred_name, phone")
-          .in("id", driverIds)
-      : { data: [] as DriverLite[], error: null };
-
-  const drivers = new Map<string, DriverLite>();
-  for (const row of (driversRes.data ?? []) as DriverLite[]) {
-    drivers.set(row.id, row);
-  }
 
   const byDriver = new Map<
     string,
     { invited: number; registered: number; active: number }
   >();
 
-  for (const row of referrals) {
-    const bucket = byDriver.get(row.driver_id) ?? {
+  // Invitados por conductor (link_opened)
+  const openedByDriver = new Map<string, EventRow[]>();
+  for (const event of linkOpened) {
+    if (!event.referrer_driver_id) continue;
+    const list = openedByDriver.get(event.referrer_driver_id) ?? [];
+    list.push(event);
+    openedByDriver.set(event.referrer_driver_id, list);
+  }
+
+  for (const [driverId, driverEvents] of openedByDriver) {
+    const bucket = byDriver.get(driverId) ?? {
       invited: 0,
       registered: 0,
       active: 0,
     };
-    bucket.invited += 1;
-    if (row.passenger_id) {
-      bucket.registered += 1;
-      if (passengers.get(row.passenger_id)?.status === "ACTIVE") {
-        bucket.active += 1;
-      }
-    }
-    byDriver.set(row.driver_id, bucket);
+    bucket.invited = countInvitedPersons(driverEvents);
+    byDriver.set(driverId, bucket);
   }
 
-  const invitedTotal = referrals.length;
-  const registeredTotal = passengerIds.length;
+  for (const attr of attributions) {
+    const bucket = byDriver.get(attr.referrer_driver_id) ?? {
+      invited: 0,
+      registered: 0,
+      active: 0,
+    };
+    bucket.registered += 1;
+    if (passengers.get(attr.passenger_id)?.status === "ACTIVE") {
+      bucket.active += 1;
+    }
+    byDriver.set(attr.referrer_driver_id, bucket);
+  }
+
+  const invitedTotal = countInvitedPersons(linkOpened);
+  const registeredTotal = Math.max(
+    registeredEvents.length,
+    attributions.length,
+  );
   let activeTotal = 0;
   for (const id of passengerIds) {
     if (passengers.get(id)?.status === "ACTIVE") activeTotal += 1;
@@ -377,6 +395,20 @@ export async function fetchReferralsDashboardBlock(): Promise<ReferralsDashboard
 
   const invitedToRegistered = conversionRate(registeredTotal, invitedTotal);
   const registeredToActive = conversionRate(activeTotal, registeredTotal);
+
+  const driverIds = Array.from(byDriver.keys());
+  const driversRes =
+    driverIds.length > 0
+      ? await supabase
+          .from("drivers")
+          .select("id, name, full_name, preferred_name, phone")
+          .in("id", driverIds)
+      : { data: [] as DriverRow[], error: null };
+
+  const drivers = new Map<string, DriverRow>();
+  for (const row of (driversRes.data ?? []) as DriverRow[]) {
+    drivers.set(row.id, row);
+  }
 
   const rankingInput = Array.from(byDriver.entries()).map(
     ([driverId, stats]) => {

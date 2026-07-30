@@ -4,6 +4,7 @@ import {
   buildWhatsAppShareUrl,
   computeReferralStats,
   conversionRate,
+  countInvitedPersons,
   filterReferralItems,
   formatConversionPercent,
   paginateItems,
@@ -129,5 +130,17 @@ describe("referrals compute", () => {
     const url = buildWhatsAppShareUrl("https://whatxia.app/i/ABC", "Luis");
     assert.match(url, /^https:\/\/wa\.me\/\?text=/);
     assert.match(url, /ABC/);
+  });
+
+  it("cuenta personas invitadas únicas por phone en link_opened", () => {
+    assert.equal(
+      countInvitedPersons([
+        { meta: { phone: "573001112233" } },
+        { meta: { phone: "573001112233" } },
+        { meta: { phone: "573009998887" } },
+        { meta: { path: "/r/DRV-ABC12" } },
+      ]),
+      3,
+    );
   });
 });

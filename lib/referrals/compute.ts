@@ -140,3 +140,23 @@ export function isMissingRelationError(error: {
     message.includes("schema cache")
   );
 }
+
+/**
+ * Personas invitadas desde eventos link_opened:
+ * - con meta.phone → únicos por teléfono
+ * - sin phone → cada evento cuenta 1
+ */
+export function countInvitedPersons(
+  events: Array<{ meta?: Record<string, unknown> | null }>,
+): number {
+  const phones = new Set<string>();
+  let withoutPhone = 0;
+  for (const event of events) {
+    const raw = event.meta?.phone;
+    const phone =
+      typeof raw === "string" && raw.trim() ? raw.trim() : null;
+    if (phone) phones.add(phone);
+    else withoutPhone += 1;
+  }
+  return phones.size + withoutPhone;
+}

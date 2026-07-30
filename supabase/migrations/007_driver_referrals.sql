@@ -1,5 +1,11 @@
--- REF-001/REF-002 — Contrato de referidos de conductores (shared Supabase).
--- REF-001 escribe/genera; REF-002 (Operations Center) solo lee.
+-- OBSOLETO (REF-006): no usar para métricas.
+-- El bot define el esquema real en:
+--   whatxia-mobility-mvp/supabase/migrations/040_driver_referrals.sql
+--   whatxia-mobility-mvp/supabase/migrations/041_referral_events_ref004.sql
+-- Tablas reales: drivers.referral_code, referral_events, referral_attributions.
+-- Este archivo se conserva solo por historial; el panel ya no lo consume.
+
+-- REF-001/REF-002 — Contrato legacy (NO usar).
 -- Idempotente: no altera tablas del bot existentes.
 
 create table if not exists public.driver_referral_links (

@@ -129,7 +129,7 @@ export function DriverReferralsTab({ driverId, driverName }: Props) {
         </p>
         <p className="mt-2 text-sm text-muted">
           {data.unavailableReason ??
-            "Aplica la migración 007 y espera datos de REF-001."}
+            "Aplica las migraciones 040/041 del bot (referral_events / referral_attributions)."}
         </p>
       </div>
     );

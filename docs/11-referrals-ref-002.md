@@ -1,80 +1,55 @@
-# 11 — Panel de referidos (REF-002)
+# 11 — Panel de referidos (REF-002 / REF-006)
 
 **Producto:** WhatXia Operations Center  
-**Dependencia:** Sprint REF-001 (generación y asociación de referidos)  
-**Principio:** Solo lectura. No genera códigos ni escribe atribuciones.
+**Fuente de verdad:** Bot WhatXia Mobility (migraciones `040_driver_referrals.sql`, `041_referral_events_ref004.sql`)  
+**Principio:** Solo lectura. No genera códigos ni escribe eventos.
 
 ---
 
-## Contrato de datos (REF-001)
+## Tablas reales (bot)
 
-Tablas compartidas (migración panel `007_driver_referrals.sql`):
+| Tabla / columna | Uso |
+|-----------------|-----|
+| `drivers.referral_code` | Código `DRV-XXXXX` del conductor |
+| `referral_events` | Auditoría: `link_opened`, `passenger_registered`, `conversion`, … |
+| `referral_attributions` | Atribución definitiva (`referrer_driver_id`, `passenger_id`) |
+| `passengers.referred_by_driver_id` | Referente (una sola vez) |
 
-### `driver_referral_links`
-| Columna | Uso |
-|---------|-----|
-| `driver_id` | Conductor dueño (unique) |
-| `code` | Código de referido |
-| `invite_url` | Enlace completo de invitación |
-| `created_at` | Fecha de creación |
+> La migración panel `007_driver_referrals.sql` (`driver_referral_links` / `driver_referrals`) es **obsoleta** y no debe usarse. REF-006 lee el esquema del bot.
 
-### `driver_referrals`
-| Columna | Uso |
-|---------|-----|
-| `driver_id` | Conductor referidor |
-| `referral_code` | Código usado |
-| `invitee_phone` / `invitee_name` | Datos previos al registro |
-| `passenger_id` | Null = solo invitado; con valor = registrado |
-| `invited_at` / `registered_at` | Timestamps |
+---
 
-REF-001 es responsable de insertar/actualizar estas filas. REF-002 solo consulta.
+## Eventos → métricas del panel
+
+| Métrica UI | Origen |
+|------------|--------|
+| Personas invitadas | `referral_events` donde `event_type = link_opened` y `referrer_driver_id = :driverId` (únicos por `meta.phone` cuando existe) |
+| Usuarios registrados | `passenger_registered` (o `referral_attributions` como fallback) |
+| Usuarios Beta / Activos | Pasajeros atribuidos con `passengers.status` |
+| Primer servicio completado | `referral_events` donde `event_type = conversion` |
+| Enlace | `buildReferralInviteUrl(code)` → `https://wa.me/<phone>?text=REF%20DRV-XXXXX` |
+
+Filtro de conductor: siempre **`referrer_driver_id`** (= `drivers.id` de la ficha).
 
 ---
 
 ## Superficie del panel
 
-1. **Ficha del conductor → pestaña Referidos**  
-   - Código, enlace, fecha  
-   - Botón **Compartir enlace** (copia al portapapeles + confirmación)  
-   - WhatsApp preparado (`buildWhatsAppShareUrl`) pero deshabilitado en UI  
-   - Stats: invitados, registrados, beta, activos, primer servicio completado  
-   - Tabla con búsqueda, orden y paginación  
+1. **Conductores → Ficha → pestaña Referidos** — `GET /api/drivers/[id]/referrals`
+2. **Dashboard** — bloque Referidos (totales, conversiones, Top 10)
 
-2. **API** `GET /api/drivers/[id]/referrals`  
-   - Permiso módulo `drivers` ≥ `read`  
-   - Query: `q`, `sort`, `page`, `pageSize`
-
-3. **Dashboard**  
-   - Total usuarios referidos  
-   - Conductores con referidos  
-   - Conversiones Invitados→Registrados y Registrados→Activos  
-   - Ranking Top 10  
+El bot tiene `/ops/referrals` (ops legacy del MVP). El Operations Center no usa esa ruta; consume las mismas tablas vía Dashboard + ficha.
 
 ---
 
-## Cálculos
+## Criterio REF-006 (recorrido completo wa.me)
 
-| Indicador | Fórmula |
-|-----------|---------|
-| Personas invitadas | Filas en `driver_referrals` del conductor |
-| Usuarios registrados | Filas con `passenger_id` |
-| Usuarios Beta / Activos | Join `passengers.status` |
-| Primer servicio | Existe `trips` con `status = COMPLETED` para ese `passenger_id` |
-| Conversiones | `registered/invited`, `active/registered` |
+Tras `link_opened` → `passenger_registered` → pasajero `ACTIVE` → `conversion`:
 
----
-
-## Aplicación
-
-1. Ejecutar `supabase/migrations/007_driver_referrals.sql` en Supabase.  
-2. REF-001 genera enlaces/atribuciones.  
-3. Opcional: `NEXT_PUBLIC_REFERRAL_INVITE_BASE_URL` si `invite_url` viene vacío (fallback).
-
----
-
-## Fuera de alcance
-
-Bonos, recompensas, comisiones, gamificación, notificaciones, campañas.
+- Personas invitadas: **1**
+- Usuarios registrados: **1**
+- Usuarios activos: **1**
+- Primer servicio completado: **1**
 
 ---
 
@@ -82,6 +57,6 @@ Bonos, recompensas, comisiones, gamificación, notificaciones, campañas.
 
 ```bash
 npm run test:referrals
-npm run build
 npx tsc --noEmit
+npm run build
 ```
