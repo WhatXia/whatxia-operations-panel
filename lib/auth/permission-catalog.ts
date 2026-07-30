@@ -41,7 +41,7 @@ export const PERMISSION_MODULES = [
   { key: "users", label: "Usuarios Admin" },
   { key: "roles", label: "Roles" },
   { key: "configuration", label: "Configuración" },
-  { key: "bot_cms", label: "Centro Admin Bot" },
+  { key: "bot_cms", label: "Centro Conversacional Bot" },
   { key: "ai", label: "IA" },
   { key: "integrations", label: "Integraciones" },
   { key: "audit", label: "Auditoría" },

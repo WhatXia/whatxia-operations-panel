@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ConversationCmsView } from "@/components/admin/bot/ConversationCmsView";
 import { InteractivePayloadEditor } from "@/components/admin/bot/InteractivePayloadEditor";
 import { WhatsAppPreview } from "@/components/admin/bot/WhatsAppPreview";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -30,7 +31,7 @@ import {
   type BotMessageVersion,
 } from "@/lib/bot-cms/types";
 
-type MainTab = "messages" | "media" | "categories";
+type MainTab = "conversations" | "messages" | "media" | "categories";
 
 const QUICK_EMOJIS = [
   "👋",
@@ -80,7 +81,7 @@ function insertAtCursor(
 
 export function BotManagerView() {
   const secureFetch = useSecureFetch();
-  const [tab, setTab] = useState<MainTab>("messages");
+  const [tab, setTab] = useState<MainTab>("conversations");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -630,8 +631,8 @@ export function BotManagerView() {
   return (
     <div>
       <PageHeader
-        title="Centro de Administración del Bot"
-        description="Administra mensajes, componentes de WhatsApp, multimedia y versiones del bot sin modificar código. Acceso exclusivo para Desarrollador."
+        title="Centro de Administración Conversacional"
+        description="Administra árboles, nodos, multimedia y versiones del bot. Solo la configuración publicada es consumible en runtime. Acceso exclusivo Desarrollador."
         actions={
           tab === "messages" ? (
             <button
@@ -665,6 +666,7 @@ export function BotManagerView() {
       <div className="mb-4 flex flex-wrap gap-2">
         {(
           [
+            ["conversations", "Conversaciones"],
             ["messages", "Mensajes"],
             ["media", "Multimedia"],
             ["categories", "Categorías"],
@@ -845,6 +847,10 @@ export function BotManagerView() {
             </button>
           </div>
         </form>
+      ) : null}
+
+      {tab === "conversations" ? (
+        <ConversationCmsView media={media} />
       ) : null}
 
       {tab === "messages" ? (
