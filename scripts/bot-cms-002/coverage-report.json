@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-07-31T16:31:54.653Z",
+  "ticket": "BOT-CMS-002",
+  "total_found": 278,
+  "total_migrated": 278,
+  "total_published": 278,
+  "total_pending": 0,
+  "coverage_pct": 100,
+  "example_codes_removed": [
+    "WELCOME_MESSAGE",
+    "TRIP_CONFIRMED",
+    "TRIP_COMPLETED"
+  ],
+  "by_module": {
+    "REGISTRATION": 41,
+    "PIONEERS": 3,
+    "SYSTEM": 18,
+    "FAVORITES": 12,
+    "MOBILITY": 54,
+    "DRIVER": 75,
+    "ERRORS": 45,
+    "INCIDENTS": 4,
+    "LOGIN": 8,
+    "RECOVERY": 8,
+    "ADMIN": 3,
+    "REFERRALS": 6,
+    "PASSENGER": 1
+  },
+  "migration_file": "supabase/migrations/011_bot_cms_full_content.sql",
+  "catalog_file": "scripts/bot-cms-002/catalog.json",
+  "acceptance": {
+    "cms_contains_exact_bot_copy": true,
+    "no_example_messages": true,
+    "bot_consumes_published_only": "wire via resolve/cms() + catalog fallback",
+    "no_duplicate_bodies_outside_catalog": "constants must use catalogBody(code)",
+    "coverage_100": true
+  }
+}
