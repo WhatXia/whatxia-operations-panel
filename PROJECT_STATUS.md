@@ -62,7 +62,7 @@ Módulos con UI real + API/lib real (no stub):
 | Usuarios | `/admin/usuarios` | CRUD admin de usuarios del panel |
 | Roles y permisos | `/admin/roles` | Roles configurables + matriz + asignación |
 | Auditoría | `/admin/auditoria` | Consulta de `audit_logs` |
-| Centro Conversacional del Bot | `/admin/bot` | Árboles Usuarios/Conductores, nodos, edges, publish-only runtime (BOT-CMS-001) |
+| Parámetros → Sistema → Estado del Bot | `/admin/parametros/sistema/estado-bot` | OPS-SYS-001: ACTIVE/MAINTENANCE + SYS_BOT_MAINTENANCE |
 | Forbidden | `/forbidden` | Destino de 403 del proxy |
 
 ---

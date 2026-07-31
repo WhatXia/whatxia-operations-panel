@@ -3,29 +3,33 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 
-const SECTIONS = [
+const ITEMS = [
   {
-    href: "/admin/parametros/programas-lanzamiento",
-    title: "Programas de Lanzamiento",
+    href: "/admin/parametros/sistema/estado-bot",
+    title: "Estado del Bot",
     description:
-      "Pioneros y futuros programas (Embajadores, Beta cerrada, etc.).",
-  },
-  {
-    href: "/admin/parametros/sistema",
-    title: "Sistema",
-    description: "Estado operativo del bot (Activo / Mantenimiento).",
+      "Activo / Mantenimiento y mensaje SYS_BOT_MAINTENANCE (SYS-001).",
   },
 ];
 
-export function ParametrosHub() {
+export function SistemaHub() {
   return (
     <div>
       <PageHeader
-        title="Parámetros"
-        description="Parámetros globales del sistema administrables desde el Operations Center."
+        title="Sistema"
+        description="Parámetros operativos globales del bot y la plataforma."
+        actions={
+          <Link
+            href="/admin/parametros"
+            className="rounded-lg border border-border px-3 py-2 text-sm"
+          >
+            ← Parámetros
+          </Link>
+        }
       />
+      <p className="mb-4 text-xs text-muted">Parámetros / Sistema</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        {SECTIONS.map((item) => (
+        {ITEMS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
